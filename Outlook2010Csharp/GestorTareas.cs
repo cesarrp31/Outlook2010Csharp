@@ -12,20 +12,20 @@ using Outlook = Microsoft.Office.Interop.Outlook;
 
 namespace Outlook2010Csharp
 {
-    public class OutlookCSharp
+    public class GestorOutlook
     {
-        private Outlook.Application outlook;
+        private static Outlook.Application outlook = GetApplicationObject();
         private GestorTareas gestorTareas;
-        private Outlook.Categories categorias;
+        private static Outlook.Categories categorias= outlook.Session.Categories;
 
         private String usuario, contrasena;
 
-        public OutlookCSharp()
+        public GestorOutlook()
         {
             inicializar("","");
         }
 
-        public OutlookCSharp(String us, String cont)
+        public GestorOutlook(String us, String cont)
         {
             inicializar(us, cont);
         }
@@ -35,13 +35,23 @@ namespace Outlook2010Csharp
             this.usuario = usuario;
             this.contrasena = contrasena;
 
-            outlook = GetApplicationObject();
-            this.gestorTareas = buscarListaTareasEnOutlook();
+            //outlook = GetApplicationObject();
+
+            /*this.gestorTareas = buscarListaTareasEnOutlook();
+            Console.WriteLine("Total de tareas del usuario: " + gestorTareas.getTotalTareas());
 
             buscarCategoriasTareasEnOutlook();
-            buscarEstadosTareasEnOutlook();
+            buscarEstadosTareasEnOutlook();*/
         }
 
+        public void inicializarListaTareas()
+        {
+            this.gestorTareas = buscarListaTareasEnOutlook();
+            Console.WriteLine("Total de tareas del usuario: " + gestorTareas.getTotalTareas());
+
+            //buscarCategoriasTareasEnOutlook();
+            buscarEstadosTareasEnOutlook();
+        }
 
         private static Outlook.Application GetApplicationObject()
         {
@@ -87,23 +97,21 @@ namespace Outlook2010Csharp
             return resultado;
         }
 
-        private Outlook.Store buscarStoresUsuarioEspecifico(String usuario)
+        private Outlook.Store buscarStoresUsuarioEspecifico()
         {
             /**
              * Permite ver todos los objetos de todos los usuarios cargados en en outlook
              * Ejemplo tomado de:
              * https://www.daniweb.com/programming/software-development/threads/475564/reading-all-store-in-outlook
              * */
-
             Outlook.NameSpace olNameSpace = outlook.GetNamespace("MAPI");
-
             foreach (Outlook.Store store in olNameSpace.Stores)
             {
                 if (store.DisplayName.StartsWith(usuario))
                 {
-                    Console.WriteLine(store.DisplayName);
+                    Console.WriteLine("Encontrado store buscada para : "+store.DisplayName);
                     return store;
-                }              
+                }
             }
             throw new SystemException("Usuario no encontrado: "+usuario);
         }
@@ -115,7 +123,6 @@ namespace Outlook2010Csharp
              * Ejemplo tomado de:
              * https://www.daniweb.com/programming/software-development/threads/475564/reading-all-store-in-outlook
              * */
-
             Outlook.MAPIFolder rootF = store.GetRootFolder();
             //folders for store
             Outlook.Folders subF = rootF.Folders;
@@ -148,6 +155,8 @@ namespace Outlook2010Csharp
 
         private GestorTareas buscarListaTareasEnOutlook()
         {
+
+            Console.WriteLine("Usuario a cargar tareas: "+usuario);
             List<Outlook.TaskItem> tareas;
             if (usuario == null || usuario.Equals(""))
             {
@@ -157,8 +166,9 @@ namespace Outlook2010Csharp
             }
             else
             {
-                Outlook.Store store = buscarStoresUsuarioEspecifico(usuario);
+                Outlook.Store store = buscarStoresUsuarioEspecifico();
                 List<Outlook.Folder> carpetasUsuario = buscarTodasCarpetasStores(store);
+                
                 tareas = new List<Outlook.TaskItem>();
                 foreach (Outlook.Folder f in carpetasUsuario)
                 {
@@ -170,19 +180,30 @@ namespace Outlook2010Csharp
             return new GestorTareas(tareas);
         }
 
-        public String getNombreOutlook()
+        public static String getNombreOutlook()
         {
-            return this.outlook.Name;
+            //Console.WriteLine("aaa "+(outlook==null).ToString()+" aa "+outlook);
+            return outlook.Name;
         }
 
-        public String getVersionOutlook()
+        public static String getVersionOutlook()
         {
-            return this.outlook.Version;
+            return outlook.Version;
         }
 
         public String getDefaultUsuarioSesion()
         {
-            return this.outlook.Session.CurrentUser.Name;
+            return outlook.Session.CurrentUser.Name;
+        }
+
+        public static Outlook.Application getOutlook()
+        {
+            return outlook;
+        }
+
+        public String getUsuario()
+        {
+            return usuario;
         }
 
         private void buscarCategoriasTareasEnOutlook()
@@ -200,7 +221,7 @@ namespace Outlook2010Csharp
             return gestorTareas;
         }
 
-        public Outlook.Categories getCategorias()
+        public static Outlook.Categories getCategorias()
         {
             return categorias;
         }
@@ -344,50 +365,50 @@ namespace Outlook2010Csharp
     }
 
     
-    public class SOutlook2010Sharp
+    public class GestorInterfaceOutlook
     {
         public const int NO_EXISTE_ERROR = 0;
         public const int USUARIO_NO_ENCONTRADO = 1;
         public const int OTRO_ERROR = 10;
 
-        private static OutlookCSharp instancia;
+        private static GestorOutlook instanciaOlkCSharp;
 
         private static String usuario= null, contrasena;
 
         private static SystemException errorRegistrado= null;
 
-        private SOutlook2010Sharp(){}
+        private GestorInterfaceOutlook(){}
 
-        private static OutlookCSharp getInstancia()
+        private static GestorOutlook getInstancia()
         {
             try
             {
-                if (instancia == null)
+                sinError();
+                if (instanciaOlkCSharp == null)
                     nuevaInstanciaUsuarioOutlook();
 
-                return instancia;
+                return instanciaOlkCSharp;
             }
             catch (SystemException e)
             {
                 registrarError(e, "Error: " + e.Message);
-                //throw e;
                 return null;
             }                
         }
 
         private static void nuevaInstanciaUsuarioOutlook()
         {
-            instancia = null;
+            instanciaOlkCSharp = null;
+            GestorInterfaceTareas.inicializarListaTarea();
             sinError();
-            try
-            {
-                if (SOutlook2010Sharp.usuario == null || SOutlook2010Sharp.usuario.Equals("")) instancia = new OutlookCSharp();
-                else instancia = new OutlookCSharp(SOutlook2010Sharp.usuario, SOutlook2010Sharp.contrasena);
-            }
-            catch (SystemException e)
-            {
-                registrarError(e, e.Message + " " + e.Source + "\n" + e.StackTrace);
-            }            
+            
+                if (GestorInterfaceOutlook.usuario == null || GestorInterfaceOutlook.usuario.Equals(""))
+                    instanciaOlkCSharp = new GestorOutlook();
+                else instanciaOlkCSharp = new GestorOutlook(GestorInterfaceOutlook.usuario, GestorInterfaceOutlook.contrasena);
+
+                //instanciaOtkSharp.inicializarListaTareas();
+            
+                             
         }
 
         public static GestorTareas getGestorTareas()
@@ -396,12 +417,32 @@ namespace Outlook2010Csharp
         }
 
         [DllExport("setCredencialesUsuario", CallingConvention = CallingConvention.StdCall)]
-        public static void setUsuario(String usuario, String contrasena)
+        public static void setCredencialesUsuario(String usuario, String contrasena)
         {
-            SOutlook2010Sharp.usuario = usuario;
-            SOutlook2010Sharp.contrasena = contrasena;
+            GestorInterfaceOutlook.usuario = usuario;
+            GestorInterfaceOutlook.contrasena = contrasena;
 
-            nuevaInstanciaUsuarioOutlook();
+            try
+            {
+                nuevaInstanciaUsuarioOutlook();  
+            }
+            catch (SystemException e)
+            {
+                registrarError(e, e.Message + " " + e.Source + "\n" + e.StackTrace);
+            }
+        }
+
+        [DllExport("actualizarListaTareas", CallingConvention = CallingConvention.StdCall)]
+        public static void actualizarListaTareas()
+        {
+            try
+            {
+                getInstancia().inicializarListaTareas();
+            }
+            catch (SystemException e)
+            {
+                registrarError(e, e.Message + " " + e.Source + "\n" + e.StackTrace);
+            }
         }
 
         //[RGiesecke.DllExport.DllExport]
@@ -415,27 +456,27 @@ namespace Outlook2010Csharp
         [DllExport("getNombreGestor", CallingConvention = CallingConvention.StdCall)]
         public static String getNombreSWFuente()
         {
-            return getInstancia().getNombreOutlook().ToString();
+            return GestorOutlook.getNombreOutlook().ToString();
         }
 
         //[RGiesecke.DllExport.DllExport]
         [DllExport("getVersionGestor", CallingConvention = CallingConvention.StdCall)]
         public static String getVersionSWFuente()
         {
-            return getInstancia().getVersionOutlook().ToString();
+            return GestorOutlook.getVersionOutlook().ToString();
         }
 
         [DllExport("getNombreUsuario", CallingConvention = CallingConvention.StdCall)]
         public static String getNombreUsuario()
         {
-            return getInstancia().getDefaultUsuarioSesion().ToString();
+            return getInstancia().getUsuario();
         }
 
         [DllExport("getCategoriasTarea", CallingConvention = CallingConvention.StdCall)]
         public static String getCategoriasTareaString()
         {
             StringBuilder sb = new StringBuilder();
-            foreach (Outlook.Category o in getInstancia().getCategorias())
+            foreach (Outlook.Category o in GestorOutlook.getCategorias())
             {
                 //Console.WriteLine(o.CategoryID+"-"+o.Name);
                 sb.Append(o.Name+";");
@@ -446,7 +487,7 @@ namespace Outlook2010Csharp
 
         public static Outlook.Categories getCategoriasTarea()
         {
-            return getInstancia().getCategorias();
+            return GestorOutlook.getCategorias();
         }
 
         [DllExport("existeError", CallingConvention = CallingConvention.StdCall)]
@@ -478,13 +519,13 @@ namespace Outlook2010Csharp
 
         public static void registrarError(SystemException ex, String msgConsola)
         {
-            SOutlook2010Sharp.errorRegistrado = ex;
+            GestorInterfaceOutlook.errorRegistrado = ex;
             Console.Error.WriteLine(msgConsola);
         }
 
-        private static void sinError()
+        public static void sinError()
         {
-            SOutlook2010Sharp.errorRegistrado = null;
+            GestorInterfaceOutlook.errorRegistrado = null;
         }
 
         public static String tratamientoExcepcionesString(String msgError, SystemException ex, int idx)
@@ -523,27 +564,34 @@ namespace Outlook2010Csharp
         }
     }
 
-    public class SGestorTareas
+    public class GestorInterfaceTareas
     {
         private static GestorTareas instancia;
 
-        private SGestorTareas()
+        private GestorInterfaceTareas()
         {
-            //instancia = SOutlook2010Sharp.getGestorTareas();
+            /*instancia = null;
+            instancia = getInstancia()*/
+        }
+
+        public static void inicializarListaTarea()
+        {
+            instancia = null;
         }
 
         private static GestorTareas getInstancia()
         {
             try
             {
+                GestorInterfaceOutlook.sinError();
                 if (instancia == null)
-                    instancia = SOutlook2010Sharp.getGestorTareas();
+                    instancia = GestorInterfaceOutlook.getGestorTareas();
 
                 return instancia;
             }
             catch (SystemException e)
             {
-                SOutlook2010Sharp.registrarError(e, "Error: " + e.Message);
+                GestorInterfaceOutlook.registrarError(e, "Error: " + e.Message);
                 //throw e;
                 return null;
             }
@@ -558,7 +606,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesInt("No se puede determinar la cantidad de tareas.", ex, -1);
+                return GestorInterfaceOutlook.tratamientoExcepcionesInt("No se puede determinar la cantidad de tareas.", ex, -1);
             }
         }
 
@@ -571,7 +619,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("del Body ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("del Body ", ex, idx);
             }
         }
 
@@ -584,7 +632,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("de la fecha de creación ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("de la fecha de creación ", ex, idx);
             }
         }
 
@@ -597,7 +645,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("de la fecha de vencimiento ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("de la fecha de vencimiento ", ex, idx);
             }
         }
 
@@ -610,7 +658,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("del asunto ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("del asunto ", ex, idx);
             }
         }
 
@@ -623,7 +671,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede determinar si la tarea esta completada.", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede determinar si la tarea esta completada.", ex, idx);
             }
         }
 
@@ -639,7 +687,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede determinar si la tarea esta completada.", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede determinar si la tarea esta completada.", ex, idx, false);
             }
         }
 
@@ -652,7 +700,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("de la fecha en que la tarea fue completada ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("de la fecha en que la tarea fue completada ", ex, idx);
             }
         }
 
@@ -665,7 +713,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("del propietario ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("del propietario ", ex, idx);
             }
         }
 
@@ -678,7 +726,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("del estado propietario ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("del estado propietario ", ex, idx);
             }
         }
 
@@ -691,7 +739,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("del delegador ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("del delegador ", ex, idx);
             }
         }
 
@@ -704,7 +752,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede determinar si la tarea fué leída.", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede determinar si la tarea fué leída.", ex, idx, false);
             }
         }
 
@@ -717,7 +765,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede determinar si la tarea fué modificada.", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede determinar si la tarea fué modificada.", ex, idx, false);
             }
         }
 
@@ -730,7 +778,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("del estado ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("del estado ", ex, idx);
             }
         }
 
@@ -744,7 +792,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede guarda las modificaciones de la tarea.", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede guarda las modificaciones de la tarea.", ex, idx, false);
             }
         }
 
@@ -757,7 +805,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede borrar la tarea.", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede borrar la tarea.", ex, idx, false);
             }
         }
 
@@ -770,7 +818,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesInt("No se puede determinar el porcentaje de completitud de la tarea.", ex, -1);
+                return GestorInterfaceOutlook.tratamientoExcepcionesInt("No se puede determinar el porcentaje de completitud de la tarea.", ex, -1);
             }
         }
 
@@ -783,7 +831,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede determinar si la tarea está en conflicto.", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede determinar si la tarea está en conflicto.", ex, idx, false);
             }
         }
 
@@ -796,7 +844,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("No se puede determinar si la tarea es recurrente.", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("No se puede determinar si la tarea es recurrente.", ex, idx, false);
             }
         }
 
@@ -809,7 +857,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("de la importancia ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("de la importancia ", ex, idx);
             }
         }
 
@@ -822,7 +870,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("del id ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("del id ", ex, idx);
             }
         }
 
@@ -835,7 +883,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesString("de la categoría ", ex, idx);
+                return GestorInterfaceOutlook.tratamientoExcepcionesString("de la categoría ", ex, idx);
             }
         }
 
@@ -846,7 +894,7 @@ namespace Outlook2010Csharp
             {
                 Boolean encontrado = false;
                 Outlook.Category aux = null;
-                foreach (Outlook.Category o in SOutlook2010Sharp.getCategoriasTarea())
+                foreach (Outlook.Category o in GestorInterfaceOutlook.getCategoriasTarea())
                 {
                     //Console.WriteLine(o.Name+" "+nombre);
                     if (o.Name.Equals(nombre))
@@ -862,7 +910,7 @@ namespace Outlook2010Csharp
             }
             catch (SystemException ex)
             {
-                return SOutlook2010Sharp.tratamientoExcepcionesBoolean("de la categoría ", ex, idx, false);
+                return GestorInterfaceOutlook.tratamientoExcepcionesBoolean("de la categoría ", ex, idx, false);
             }
         }
     }
