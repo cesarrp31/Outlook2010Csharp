@@ -10,6 +10,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Outlook = Microsoft.Office.Interop.Outlook;
 
+//Hecho por A.U.S. Peralta Cesar
+
 namespace Outlook2010Csharp
 {
     public class GestorOutlook
@@ -84,7 +86,6 @@ namespace Outlook2010Csharp
              * Ejemplo tomado de:
              * https://www.daniweb.com/programming/software-development/threads/475564/reading-all-store-in-outlook
              * */
-
             List<Outlook.Store> resultado = new List<Outlook.Store>();
             Outlook.NameSpace olNameSpace = outlook.GetNamespace("MAPI");
 
@@ -154,7 +155,6 @@ namespace Outlook2010Csharp
 
         private GestorTareas buscarListaTareasEnOutlook()
         {
-
             //Console.WriteLine("Usuario a cargar tareas: "+usuario);
             List<Outlook.TaskItem> tareas;
             if (usuario == null || usuario.Equals(""))
@@ -232,7 +232,12 @@ namespace Outlook2010Csharp
 
         public GestorTareas(List<Outlook.TaskItem> tareas)
         {
-            this.tareas = tareas;            
+            tareas.Sort(
+                delegate (Outlook.TaskItem x, Outlook.TaskItem y)
+                    {
+                        return x.CreationTime.CompareTo(y.CreationTime);
+                    });
+            this.tareas= tareas;
         }
 
         public int getTotalTareas()
@@ -257,7 +262,8 @@ namespace Outlook2010Csharp
 
         public String getFechaCreacion(int idx)
         {
-            return getTarea(idx).CreationTime.ToString();
+            //return getTarea(idx).CreationTime.ToString();
+            return formatearFecha(getTarea(idx).CreationTime);
         }
 
         public Boolean isTareaCompletada(int idx)
@@ -361,6 +367,13 @@ namespace Outlook2010Csharp
             if (idx >= this.getTotalTareas()) throw new IndexOutOfRangeException();
             return tareas.ElementAt(idx);
         }
+
+        private String formatearFecha(DateTime fecha)
+        {
+            return fecha.Day + "/" + fecha.Month + "/" + fecha.Year + " " + fecha.Hour + ":" + fecha.Minute + ":" + fecha.Second;
+            //return String.Format("{0:dd/MM/yyyy HH:mm:ss tt}",fecha);
+        }
+
     }
 
     
@@ -880,6 +893,7 @@ namespace Outlook2010Csharp
         public const int OTRO_ERROR = 10;
 
         private static SystemException errorRegistrado = null;
+        private static DateTime fechaUltimoError = DateTime.MinValue;
 
         private TratamientoErrores() { }
 
@@ -891,12 +905,14 @@ namespace Outlook2010Csharp
         public static void registrarError(SystemException ex, String msgConsola)
         {
             errorRegistrado = ex;
+            fechaUltimoError = DateTime.Now;
             Console.Error.WriteLine(msgConsola);
         }
 
         public static void sinError()
         {
             errorRegistrado = null;
+            fechaUltimoError = DateTime.MinValue;
         }
 
         public static String tratamientoExcepcionesString(String msgError, SystemException ex, int idx)
